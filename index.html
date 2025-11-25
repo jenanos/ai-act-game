@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Act Game</title>
+    <script>
+      window.addEventListener('error', function(event) {
+        const errorDiv = document.createElement('div');
+        errorDiv.style.position = 'absolute';
+        errorDiv.style.top = '0';
+        errorDiv.style.left = '0';
+        errorDiv.style.width = '100%';
+        errorDiv.style.backgroundColor = 'rgba(255, 0, 0, 0.8)';
+        errorDiv.style.color = 'white';
+        errorDiv.style.padding = '10px';
+        errorDiv.style.zIndex = '9999';
+        errorDiv.textContent = 'Error: ' + event.message + ' at ' + event.filename + ':' + event.lineno;
+        document.body.appendChild(errorDiv);
+        console.error('Global error:', event.error);
+      });
+    </script>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <div id="instructions">
+        <div class="content">
+            <h1>AI Act Explorer</h1>
+            <p>Click to Start</p>
+            <div class="controls">
+                <p><strong>WASD</strong> Move</p>
+                <p><strong>Space/C</strong> Up/Down</p>
+                <p><strong>Shift</strong> Sprint</p>
+                <p><strong>Mouse</strong> Look</p>
+            </div>
+        </div>
+    </div>
+    <div id="app"></div>
+    <script type="module" src="/main.js"></script>
+  </body>
+</html>
