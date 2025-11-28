@@ -10,7 +10,12 @@ export class World {
         this.player = player;
         this.content = new Content(scene, player);
         this.clock = new THREE.Clock();
-        
+
+        this.asteroidBelt = null;
+        this.nebulae = null;
+        this.comets = [];
+        this.beaconGroup = null;
+
         this.initLights();
         this.initEnvironment();
         this.generateGalaxy();
@@ -27,19 +32,168 @@ export class World {
     }
 
     initEnvironment() {
-
-
         // Fog for depth
         this.scene.fog = new THREE.FogExp2(0x000000, 0.01); // Reduced fog
         this.scene.background = new THREE.Color(0x000000);
-        
-        // Debug Cube
-        const cube = new THREE.Mesh(
-            new THREE.BoxGeometry(2, 2, 2),
-            new THREE.MeshBasicMaterial({ color: 0xff0000 })
-        );
-        cube.position.set(0, 5, -10);
-        this.scene.add(cube);
+
+        this.createNebulae();
+        this.createAsteroidBelt();
+        this.createObservationBeacons();
+        this.spawnComets();
+    }
+
+    createNebulae() {
+        const cloudMaterial = new THREE.SpriteMaterial({
+            color: 0x4a7cff,
+            opacity: 0.25,
+            transparent: true,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending
+        });
+
+        this.nebulae = new THREE.Group();
+
+        for (let i = 0; i < 25; i++) {
+            const sprite = new THREE.Sprite(cloudMaterial.clone());
+            const scale = 50 + Math.random() * 100;
+            sprite.scale.set(scale, scale, 1);
+            sprite.material.color.offsetHSL((Math.random() - 0.5) * 0.2, 0, 0);
+            sprite.material.opacity = 0.15 + Math.random() * 0.15;
+
+            const radius = 150 + Math.random() * 120;
+            const angle = Math.random() * Math.PI * 2;
+            sprite.position.set(
+                Math.cos(angle) * radius,
+                (Math.random() - 0.5) * 40,
+                Math.sin(angle) * radius
+            );
+
+            this.nebulae.add(sprite);
+        }
+
+        this.scene.add(this.nebulae);
+    }
+
+    createAsteroidBelt() {
+        const belt = new THREE.Group();
+        const geometry = new THREE.IcosahedronGeometry(0.5, 0);
+        const material = new THREE.MeshStandardMaterial({
+            color: 0x777777,
+            roughness: 1,
+            metalness: 0.1
+        });
+
+        const innerRadius = 35;
+        const outerRadius = 65;
+
+        for (let i = 0; i < 220; i++) {
+            const asteroid = new THREE.Mesh(geometry, material.clone());
+            const radius = innerRadius + Math.random() * (outerRadius - innerRadius);
+            const angle = Math.random() * Math.PI * 2;
+            const yOffset = (Math.random() - 0.5) * 6;
+
+            asteroid.position.set(
+                Math.cos(angle) * radius,
+                yOffset,
+                Math.sin(angle) * radius
+            );
+
+            const scale = 0.3 + Math.random() * 1.2;
+            asteroid.scale.setScalar(scale);
+
+            asteroid.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+
+            asteroid.userData = {
+                spin: new THREE.Vector3(
+                    (Math.random() - 0.5) * 0.5,
+                    (Math.random() - 0.5) * 0.5,
+                    (Math.random() - 0.5) * 0.5
+                )
+            };
+
+            belt.add(asteroid);
+        }
+
+        this.asteroidBelt = belt;
+        this.scene.add(this.asteroidBelt);
+    }
+
+    createObservationBeacons() {
+        this.beaconGroup = new THREE.Group();
+
+        const beaconPositions = [
+            new THREE.Vector3(0, 8, -30),
+            new THREE.Vector3(25, 6, 10),
+            new THREE.Vector3(-28, 10, 18)
+        ];
+
+        beaconPositions.forEach((pos, index) => {
+            const baseGeometry = new THREE.CylinderGeometry(0.6, 1.2, 4, 12);
+            const baseMaterial = new THREE.MeshStandardMaterial({ color: 0x222831, emissive: 0x0b192f });
+            const base = new THREE.Mesh(baseGeometry, baseMaterial);
+            base.position.copy(pos);
+
+            const ringGeometry = new THREE.TorusGeometry(2.4, 0.08, 12, 48);
+            const ringMaterial = new THREE.MeshStandardMaterial({ color: 0x4af2c0, emissive: 0x2ae6b0, emissiveIntensity: 0.8 });
+            const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+            ring.position.copy(pos);
+            ring.rotation.x = Math.PI / 2;
+
+            const light = new THREE.PointLight(0x3ae4ff, 2.5, 40, 2);
+            light.position.copy(pos).add(new THREE.Vector3(0, 2, 0));
+
+            const tipGeometry = new THREE.ConeGeometry(0.4, 1.2, 10);
+            const tipMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0x4a7cff, emissiveIntensity: 1.2 });
+            const tip = new THREE.Mesh(tipGeometry, tipMaterial);
+            tip.position.copy(pos).add(new THREE.Vector3(0, 2.5, 0));
+
+            const beacon = new THREE.Group();
+            beacon.add(base, ring, tip, light);
+
+            beacon.userData = {
+                pulseOffset: index * Math.PI * 0.5
+            };
+
+            this.beaconGroup.add(beacon);
+        });
+
+        this.scene.add(this.beaconGroup);
+    }
+
+    spawnComets() {
+        this.comets = [];
+
+        const bodyGeometry = new THREE.SphereGeometry(0.8, 16, 16);
+        const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0x6bd5ff, emissiveIntensity: 1.2 });
+
+        const tailGeometry = new THREE.ConeGeometry(0.4, 3, 12);
+        const tailMaterial = new THREE.MeshStandardMaterial({ color: 0x9cf5ff, emissive: 0x7ae3ff, emissiveIntensity: 0.7, transparent: true, opacity: 0.8 });
+
+        for (let i = 0; i < 4; i++) {
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial.clone());
+            const tail = new THREE.Mesh(tailGeometry, tailMaterial.clone());
+
+            const comet = new THREE.Group();
+            comet.add(body);
+            comet.add(tail);
+            tail.position.y = -1.5;
+            tail.rotation.x = Math.PI;
+
+            const radius = 70 + Math.random() * 40;
+            const speed = 0.08 + Math.random() * 0.12;
+            const height = (Math.random() - 0.5) * 20;
+            const offset = Math.random() * Math.PI * 2;
+
+            comet.userData = {
+                radius,
+                speed,
+                angle: offset,
+                height
+            };
+
+            this.scene.add(comet);
+            this.comets.push(comet);
+        }
     }
 
     generateGalaxy() {
@@ -170,7 +324,7 @@ export class World {
         // Update Particles
         if (this.particleGroup) {
             this.particleGroup.rotation.y = elapsedTime * 0.1;
-            
+
             for (let i = 0; i < this.particleGroup.children.length; i++) {
                 const sprite = this.particleGroup.children[i];
                 const a = this.particleAttributes.randomness[i] + 0.75;
@@ -180,6 +334,52 @@ export class World {
                 sprite.position.y = this.particleAttributes.startPosition[i].y * pulseFactor;
                 sprite.position.z = this.particleAttributes.startPosition[i].z * pulseFactor;
             }
+        }
+
+        if (this.asteroidBelt) {
+            this.asteroidBelt.rotation.y += deltaTime * 0.05;
+            this.asteroidBelt.children.forEach(asteroid => {
+                asteroid.rotation.x += asteroid.userData.spin.x * deltaTime;
+                asteroid.rotation.y += asteroid.userData.spin.y * deltaTime;
+                asteroid.rotation.z += asteroid.userData.spin.z * deltaTime;
+            });
+        }
+
+        if (this.nebulae) {
+            this.nebulae.children.forEach((sprite, index) => {
+                sprite.material.opacity = 0.12 + Math.sin(elapsedTime * 0.2 + index) * 0.05 + (sprite.material.opacity * 0.2);
+                sprite.material.rotation += 0.001;
+            });
+        }
+
+        if (this.beaconGroup) {
+            this.beaconGroup.children.forEach((beacon, index) => {
+                const pulse = Math.sin(elapsedTime * 2 + beacon.userData.pulseOffset) * 0.5 + 1.2;
+                beacon.children.forEach(child => {
+                    if (child.isPointLight) {
+                        child.intensity = 1.5 * pulse;
+                    }
+                });
+
+                const ring = beacon.children.find(child => child.geometry && child.geometry.type === 'TorusGeometry');
+                if (ring) {
+                    ring.rotation.z += deltaTime * 0.6;
+                }
+            });
+        }
+
+        if (this.comets.length) {
+            this.comets.forEach(comet => {
+                comet.userData.angle += comet.userData.speed * deltaTime;
+                const angle = comet.userData.angle;
+                comet.position.set(
+                    Math.cos(angle) * comet.userData.radius,
+                    comet.userData.height + Math.sin(angle * 0.7) * 3,
+                    Math.sin(angle) * comet.userData.radius
+                );
+
+                comet.rotation.y = -angle + Math.PI / 2;
+            });
         }
     }
 }
